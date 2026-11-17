@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+  namespace: k8s-lab
+  labels:
+    app: demo-app
+    strategy: recreate
+spec:
+  replicas: 4
+  revisionHistoryLimit: 5
+  # Recreate strategy kills ALL old pods first, then creates new pods.
+  # Traffic will FAIL during this period (demonstrates why Recreate has downtime).
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: demo-app
+  template:
+    metadata:
+      labels:
+        app: demo-app
+        strategy: recreate
+    spec:
+      containers:
+        - name: web
+          image: node:20-alpine
+          command: ["node", "/app/server.js"]
+          ports:
+            - containerPort: 8080
+          env:
+            - name: APP_VERSION
+              value: "v1.0.0-Recreate-Strategy"
+            - name: BG_COLOR
+              value: "#9333ea" # purple
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 4
+            periodSeconds: 3
+          volumeMounts:
+            - name: code-volume
+              mountPath: /app
+      volumes:
+        - name: code-volume
+          configMap:
+            name: demo-app-source
